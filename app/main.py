@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
-from app.api.routes import campsite, weather
+from app.api.routes import campsite, weather, agent
 from app.core.config import settings
 from app.db.database import engine, Base
-import app.models.district  # noqa: F401  讓 create_all 建立 district、county_alias
+import app.models.district
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from app.schemas.error import ErrorResponse
@@ -31,6 +31,7 @@ async def global_exception_handler(request, exc):
 
 app.include_router(campsite.router)
 app.include_router(weather.router)
+app.include_router(agent.router)
 
 @app.get("/")
 def root():

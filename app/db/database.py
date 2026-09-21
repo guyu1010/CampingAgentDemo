@@ -4,7 +4,7 @@ from app.core.config import settings
 
 DATABASE_URL = settings.database_url  # 從設定中讀取資料庫URL
 
-engine = create_async_engine(DATABASE_URL, echo=True)  # echo=True 會印出SQL指令，方便學習觀察
+engine = create_async_engine(DATABASE_URL, echo=False)
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
