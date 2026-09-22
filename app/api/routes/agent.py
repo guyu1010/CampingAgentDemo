@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends
-from app.db.database import get_db
-from app.services.agent import AgentService, AsyncOpenAI, get_openai_client
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.db.database import get_db
 from app.schemas.agent import ChatRequest, ChatResponse
+from app.services.agent import AgentService, AsyncOpenAI, get_openai_client
 
 router = APIRouter(prefix="/api/chat", tags=["Agent"])
 

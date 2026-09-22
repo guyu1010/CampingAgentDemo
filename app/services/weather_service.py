@@ -1,5 +1,6 @@
 import httpx
 from fastapi import HTTPException
+
 from app.schemas.weather import WeatherResponse
 
 # 定義 WMO 天氣代碼與中文描述的對應字典

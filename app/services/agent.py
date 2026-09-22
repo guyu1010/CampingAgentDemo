@@ -1,17 +1,19 @@
-from fastapi import HTTPException, status
-from app.core.config import settings
-from openai import AsyncOpenAI, APIError, APITimeoutError
-from app.services.campsite_service import CampsiteService
-from app.services.weather_service import WeatherService
-from app.schemas.agent import ChatResponse
+import asyncio
 import json
 import uuid
 from datetime import datetime, timedelta
-import asyncio
+
+from fastapi import HTTPException, status
+from openai import APIError, APITimeoutError, AsyncOpenAI
+
+from app.core.config import settings
+from app.schemas.agent import ChatResponse
+from app.services.campsite_service import CampsiteService
+from app.services.weather_service import WeatherService
 
 SYSTEM_PROMPT = """- 身份與範圍:你是台灣露營助理,只回答露營相關問題。
 - 縣市名稱規則:一律用「臺」而非「台」,呼叫工具前先轉成正式名稱。
-- 回答風格:繁體中文、簡潔、列出全部 5 個結果。
+- 回答風格:繁體中文、簡潔、預設列出 5 個結果，但如果使用者指定數量時，以使用者需求為準。
 - 模糊情況怎麼辦:例如使用者說「嘉義」時,先反問是縣還是市。
 - 工具使用策略:問天氣時,要先取得座標。"""
 

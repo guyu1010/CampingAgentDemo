@@ -1,19 +1,22 @@
-from fastapi import FastAPI, HTTPException
-from app.api.routes import campsite, weather, agent
-from app.core.config import settings
-from app.db.database import engine, Base
-from contextlib import asynccontextmanager
-from fastapi.responses import JSONResponse
-from app.schemas.error import ErrorResponse
-from app.services.agent import AgentService
 import asyncio
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+
+from app.api.routes import agent, campsite, weather
+from app.core.config import settings
+from app.db.database import Base, engine
+from app.services.agent import AgentService
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)  # 啟動時自動建表
 
-    asyncio.create_task(AgentService.run_cleanup_scheduler()) # 啟動自動清理session程序
+    asyncio.create_task(AgentService.run_cleanup_scheduler()) # 啟動自動執行清理session排程
     yield
 
 app = FastAPI(
@@ -36,7 +39,4 @@ app.include_router(campsite.router)
 app.include_router(weather.router)
 app.include_router(agent.router)
 
-@app.get("/")
-def root():
-    return {"message": "server run"}
-
+app.mount("/web", StaticFiles(directory="web", html=True), name="web")
