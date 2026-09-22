@@ -67,9 +67,15 @@ OPENAI_ERROR_MAP = {
 MAX_TURNS = 3
 session = {}
 
+client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=30)
+
+def get_openai_client():
+    return client
+
 class AgentService:
-    def __init__(self, db):
+    def __init__(self, db, client):
         self.db = db
+        self.client = client
 
     @staticmethod
     def sessionManage(session_id: str, chat_history: list):
@@ -97,11 +103,9 @@ class AgentService:
         chat_history.append(message)
         # self.sessionManage(session_id, chat_history)
 
-        client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=30)
-
         for _ in range(5):
             try:
-                response = await client.responses.create(
+                response = await self.client.responses.create(
                     model=settings.openai_model,
                     input=chat_history,
                     tools=tools,

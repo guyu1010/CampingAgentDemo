@@ -1,14 +1,14 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.campsite import Campsite
-from app.models.district import District
+from app.models.district import District, CountyAlias
 from app.schemas.campsite import CampsiteResponse
 from fastapi import HTTPException
 import math
 
 class CampsiteService:
     def __init__(self, db: AsyncSession):
-         self.db = db
+        self.db = db
 
     async def get_campsite(self):
         result = await self.db.execute(select(Campsite))
@@ -26,6 +26,9 @@ class CampsiteService:
 
     # 根據指定位置取最近露營地清單
     async def get_near_campsite(self, county: str, district: str | None = None):
+
+        county = await self.resolve_county(county)
+
         # 取起點座標
         (lng, lat) = await self.get_location_coordinate(county, district)
 
@@ -62,7 +65,7 @@ class CampsiteService:
         data = result.scalar_one_or_none()
 
         if data is None:
-             raise HTTPException(404, "找不到該地點")
+            raise HTTPException(404, "找不到該地點")
 
         return (data.lng, data.lat)
 
@@ -82,3 +85,12 @@ class CampsiteService:
         r = 6371.0
 
         return c * r
+
+    async def resolve_county(self, county: str):
+        result = await self.db.execute(select(CountyAlias).where(CountyAlias.alias == county))
+        resolved = result.scalar_one_or_none()
+
+        if resolved is None:
+            return county
+
+        return resolved.county
