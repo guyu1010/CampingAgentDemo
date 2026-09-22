@@ -2,15 +2,18 @@ from fastapi import FastAPI, HTTPException
 from app.api.routes import campsite, weather, agent
 from app.core.config import settings
 from app.db.database import engine, Base
-import app.models.district
 from contextlib import asynccontextmanager
 from fastapi.responses import JSONResponse
 from app.schemas.error import ErrorResponse
+from app.services.agent import AgentService
+import asyncio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)  # 啟動時自動建表
+
+    asyncio.create_task(AgentService.run_cleanup_scheduler()) # 啟動自動清理session程序
     yield
 
 app = FastAPI(

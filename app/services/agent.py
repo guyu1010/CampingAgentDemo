@@ -6,6 +6,8 @@ from app.services.weather_service import WeatherService
 from app.schemas.agent import ChatResponse
 import json
 import uuid
+from datetime import datetime, timedelta
+import asyncio
 
 SYSTEM_PROMPT = """- 身份與範圍:你是台灣露營助理,只回答露營相關問題。
 - 縣市名稱規則:一律用「臺」而非「台」,呼叫工具前先轉成正式名稱。
@@ -78,7 +80,7 @@ class AgentService:
         self.client = client
 
     @staticmethod
-    def sessionManage(session_id: str, chat_history: list):
+    def sessionManage(session_id: str, chat_history: list, time: datetime):
         user_positions = []
         for i in range(len(chat_history)):
             if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "user":
@@ -88,20 +90,43 @@ class AgentService:
             start = user_positions[-MAX_TURNS]
             chat_history = chat_history[start:]
 
-        session[session_id] = chat_history
+        session[session_id] = (chat_history, time)
+
+    @staticmethod
+    async def run_cleanup_scheduler():
+        while True:
+            try:
+                AgentService.clean_session()
+            except Exception as e:
+                print(f"清理過程中發生錯誤: {e}")
+
+            await asyncio.sleep(6 * 60 * 60)
+
+    @staticmethod
+    def clean_session():
+        cutoff_time = datetime.now() - timedelta(hours=24)
+
+        remove = []
+        for key, (lst, dt) in session.items():
+            if dt < cutoff_time:
+                remove.append(key)
+
+        # 遍尋刪除所有過期的字典
+        for key in remove:
+            del session[key]
 
     async def chat(self, session_id: str | None, question: str):
-        chat_history = list(session.get(session_id, []))
+        chat_history, time = list(session.get(session_id, ([], None)))
 
         if session_id is None or session_id not in session:
             session_id = str(uuid.uuid4())
+            time = datetime.now()
 
         message = {
             "role": "user",
             "content": question
         }
         chat_history.append(message)
-        # self.sessionManage(session_id, chat_history)
 
         for _ in range(5):
             try:
@@ -139,7 +164,7 @@ class AgentService:
             # self.sessionManage(session_id, chat_history)
 
             if len(tool_calls) == 0:
-                self.sessionManage(session_id, chat_history)
+                self.sessionManage(session_id, chat_history, time)
                 return ChatResponse(session_id=session_id, answer=response.output_text)
 
             for tool_item in tool_calls:
