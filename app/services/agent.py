@@ -3,7 +3,9 @@ from app.core.config import settings
 from openai import AsyncOpenAI, APIError, APITimeoutError
 from app.services.campsite_service import CampsiteService
 from app.services.weather_service import WeatherService
+from app.schemas.agent import ChatResponse
 import json
+import uuid
 
 SYSTEM_PROMPT = """- 身份與範圍:你是台灣露營助理,只回答露營相關問題。
 - 縣市名稱規則:一律用「臺」而非「台」,呼叫工具前先轉成正式名稱。
@@ -62,17 +64,38 @@ OPENAI_ERROR_MAP = {
     429: (status.HTTP_429_TOO_MANY_REQUESTS, "服務太過繁忙或額度已滿，請稍後再試。"),
 }
 
+MAX_TURNS = 3
+session = {}
+
 class AgentService:
     def __init__(self, db):
         self.db = db
 
-    async def chat(self, question: str):
-        chat_history = []
+    @staticmethod
+    def sessionManage(session_id: str, chat_history: list):
+        user_positions = []
+        for i in range(len(chat_history)):
+            if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "user":
+                user_positions.append(i)
+
+        if len(user_positions) > MAX_TURNS:
+            start = user_positions[-MAX_TURNS]
+            chat_history = chat_history[start:]
+
+        session[session_id] = chat_history
+
+    async def chat(self, session_id: str | None, question: str):
+        chat_history = list(session.get(session_id, []))
+
+        if session_id is None or session_id not in session:
+            session_id = str(uuid.uuid4())
+
         message = {
             "role": "user",
             "content": question
         }
         chat_history.append(message)
+        # self.sessionManage(session_id, chat_history)
 
         client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=30)
 
@@ -97,7 +120,6 @@ class AgentService:
                 print(repr(e))
                 raise HTTPException(status_code=500, detail="系統發生內部錯誤。") from e
 
-
             tool_calls = []
 
             for item in response.output:
@@ -109,10 +131,12 @@ class AgentService:
                     }
                     tool_calls.append(tool)
 
-            if len(tool_calls) == 0:
-                return response.output_text
-
             chat_history += response.output
+            # self.sessionManage(session_id, chat_history)
+
+            if len(tool_calls) == 0:
+                self.sessionManage(session_id, chat_history)
+                return ChatResponse(session_id=session_id, answer=response.output_text)
 
             for tool_item in tool_calls:
                 try:
@@ -139,4 +163,4 @@ class AgentService:
                     "output": json.dumps(result, ensure_ascii=False),
                 })
 
-        return "找不到答案"
+        return ChatResponse(session_id=session_id, answer="找不到答案")
