@@ -179,6 +179,15 @@
   }
   .empty-hint .tip:hover { background: var(--bubble-bot); }
 
+  .offline-hint {
+    padding: 10px 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #9a3b3b;
+    background: #fbe7e7;
+    border-top: 1px solid #f0c4c4;
+  }
+
   :root:not([data-theme="light"]) {
     @media (prefers-color-scheme: dark) { }
   }
@@ -218,6 +227,9 @@
       <textarea id="input" rows="1" placeholder="輸入訊息"></textarea>
       <button type="submit" class="send" id="sendBtn">送出</button>
     </form>
+    <div class="offline-hint" id="offlineHint" hidden>
+      目前展示暫時關閉
+    </div>
   </div>
 
 <script>
@@ -230,8 +242,26 @@
   const input = document.getElementById("input");
   const sendBtn = document.getElementById("sendBtn");
   const newChatBtn = document.getElementById("newChatBtn");
+  const offlineHint = document.getElementById("offlineHint");
 
   let sessionId = sessionStorage.getItem("camping_session_id") || null;
+
+  // 進頁面先確認展示是否開放，關閉時直接鎖住輸入，不用等使用者送出才知道
+  async function checkStatus() {
+    try {
+      const resp = await fetch(API_URL + "status");
+      const data = await resp.json();
+      if (!data.enabled) {
+        input.disabled = true;
+        sendBtn.disabled = true;
+        input.placeholder = "展示暫時關閉";
+        offlineHint.hidden = false;
+      }
+    } catch (err) {
+      // 狀態查詢失敗就不擋輸入，讓送出時的錯誤處理去顯示真正的問題
+    }
+  }
+  checkStatus();
 
   function escapeHtml(str) {
     return str
