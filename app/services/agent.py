@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime, timedelta
 
@@ -74,6 +75,8 @@ _session_store = {}
 
 client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=30)
 
+logger = logging.getLogger(__name__)
+
 def get_openai_client():
     return client
 
@@ -101,7 +104,7 @@ class AgentService:
             try:
                 AgentService.clean_session()
             except Exception as e:
-                print(f"清理過程中發生錯誤: {e}")
+                logger.error("清理過程中發生錯誤: %r", e)
 
             await asyncio.sleep(6 * 60 * 60)
 
@@ -139,17 +142,17 @@ class AgentService:
                     tools=tools,
                     instructions = SYSTEM_PROMPT)
             except APITimeoutError as e:
-                print(repr(e))
+                logger.error("OpenAI 呼叫逾時: %r", e)
                 raise HTTPException(status_code=504, detail="呼叫逾時") from e
 
             except APIError as e:
-                print(repr(e))
+                logger.error("OpenAI API 錯誤: %r", e)
 
                 http_status, detail = OPENAI_ERROR_MAP.get(getattr(e, "status_code", None), (status.HTTP_502_BAD_GATEWAY, "AI 服務回應異常。"))
                 raise HTTPException(status_code=http_status, detail=detail) from e
 
             except Exception as e:
-                print(repr(e))
+                logger.error("系統發生非預期錯誤: %r", e)
                 raise HTTPException(status_code=500, detail="系統發生內部錯誤。") from e
 
             tool_calls = []
@@ -184,10 +187,10 @@ class AgentService:
                         result = "未知的工具"
                 except HTTPException as e:
                         result = {"error": e.detail}
-                        print(repr(e))
+                        logger.error("工具執行時發生 HTTPException: %r", e)
                 except Exception as e:
                         result = {"error": "工具執行失敗"}
-                        print(repr(e))
+                        logger.error("工具執行失敗: %r", e)
 
                 chat_history.append({
                     "type": "function_call_output",

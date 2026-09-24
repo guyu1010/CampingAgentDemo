@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import agent, campsite, weather
 from app.core.config import settings
+from app.core.logging_config import setup_logging
 from app.db.database import Base, engine
 from app.services.agent import AgentService
 
@@ -18,6 +19,8 @@ async def lifespan(app: FastAPI):
 
     asyncio.create_task(AgentService.run_cleanup_scheduler()) # 啟動自動執行清理session排程
     yield
+
+setup_logging()
 
 app = FastAPI(
     title=settings.app_name,
