@@ -12,7 +12,7 @@ class CampsiteBase(BaseModel):
     website: str
 
 class CampsiteResponse(CampsiteBase):
-    id: int
+    pass
 
     model_config = {
         "from_attributes": True  # 讓它能直接讀 SQLAlchemy物件轉成Pydantic

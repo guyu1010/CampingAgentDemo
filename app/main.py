@@ -2,7 +2,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import agent, campsite, weather
@@ -38,5 +38,9 @@ async def global_exception_handler(request, exc):
 app.include_router(campsite.router)
 app.include_router(weather.router)
 app.include_router(agent.router)
+
+@app.get("/")
+async def root():
+    return RedirectResponse("/web/")
 
 app.mount("/web", StaticFiles(directory="web", html=True), name="web")

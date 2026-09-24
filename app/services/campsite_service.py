@@ -24,8 +24,8 @@ class CampsiteService:
 
     # 根據 district 篩選露營地
     async def get_campsite_by_district(self, district: str):
-            result = await self.db.execute(select(Campsite).where(Campsite.district == district))
-            return result.scalars().all()
+        result = await self.db.execute(select(Campsite).where(Campsite.district == district))
+        return result.scalars().all()
 
     # 根據指定位置取最近露營地清單
     async def get_near_campsite(self, county: str, district: str | None = None):
@@ -43,17 +43,17 @@ class CampsiteService:
         # 計算起點到各點距離
         for item_campsite in campsite_all:
             km = self.calculate_distance_km(lng, lat, item_campsite.lng, item_campsite.lat)
-            t = (round(km, 2), item_campsite)
-            distances.append(t)
+            data = (round(km, 2), item_campsite)
+            distances.append(data)
 
         distances.sort(key=lambda x: x[0])
         top5 = distances[:5]
 
         result = []
-        for i in top5:
-            obj = CampsiteResponse.model_validate(i[1]).model_dump()
-            obj["distance_km"] = i[0]
-            result.append(obj)
+        for item in top5:
+            res = CampsiteResponse.model_validate(item[1]).model_dump()
+            res["distance_km"] = item[0]
+            result.append(res)
 
         return result
 
@@ -74,11 +74,11 @@ class CampsiteService:
 
     # 計算兩點距離
     @staticmethod
-    def calculate_distance_km(lon1: float, lat1: float, lon2: float, lat2: float):
+    def calculate_distance_km(lng1: float, lat1: float, lng2: float, lat2: float):
 
-        lon1, lat1, lon2, lat2 = map(math.radians, (lon1, lat1, lon2, lat2))
+        lng1, lat1, lng2, lat2 = map(math.radians, (lng1, lat1, lng2, lat2))
 
-        dlon = lon2 - lon1
+        dlon = lng2 - lng1
         dlat = lat2 - lat1
 
         a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2

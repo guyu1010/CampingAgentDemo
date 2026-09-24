@@ -68,8 +68,9 @@ OPENAI_ERROR_MAP = {
     429: (status.HTTP_429_TOO_MANY_REQUESTS, "服務太過繁忙或額度已滿，請稍後再試。"),
 }
 
+MAX_TOOL_CALL_LOOPS = 5
 MAX_TURNS = 3
-session = {}
+_session_store = {}
 
 client = AsyncOpenAI(api_key=settings.openai_api_key, timeout=30)
 
@@ -82,7 +83,7 @@ class AgentService:
         self.client = client
 
     @staticmethod
-    def sessionManage(session_id: str, chat_history: list, time: datetime):
+    def session_manage(session_id: str, chat_history: list, last_active_at: datetime):
         user_positions = []
         for i in range(len(chat_history)):
             if isinstance(chat_history[i], dict) and chat_history[i].get("role") == "user":
@@ -92,7 +93,7 @@ class AgentService:
             start = user_positions[-MAX_TURNS]
             chat_history = chat_history[start:]
 
-        session[session_id] = (chat_history, time)
+        _session_store[session_id] = (chat_history, last_active_at)
 
     @staticmethod
     async def run_cleanup_scheduler():
@@ -109,20 +110,20 @@ class AgentService:
         cutoff_time = datetime.now() - timedelta(hours=24)
 
         remove = []
-        for key, (lst, dt) in session.items():
+        for key, (_, dt) in _session_store.items():
             if dt < cutoff_time:
                 remove.append(key)
 
         # 遍尋刪除所有過期的字典
         for key in remove:
-            del session[key]
+            del _session_store[key]
 
     async def chat(self, session_id: str | None, question: str):
-        chat_history, time = list(session.get(session_id, ([], None)))
+        chat_history, last_active_at = list(_session_store.get(session_id, ([], None)))
 
-        if session_id is None or session_id not in session:
+        if session_id is None or session_id not in _session_store:
             session_id = str(uuid.uuid4())
-            time = datetime.now()
+            last_active_at = datetime.now()
 
         message = {
             "role": "user",
@@ -130,7 +131,7 @@ class AgentService:
         }
         chat_history.append(message)
 
-        for _ in range(5):
+        for _ in range(MAX_TOOL_CALL_LOOPS):
             try:
                 response = await self.client.responses.create(
                     model=settings.openai_model,
@@ -166,7 +167,7 @@ class AgentService:
             # self.sessionManage(session_id, chat_history)
 
             if len(tool_calls) == 0:
-                self.sessionManage(session_id, chat_history, time)
+                self.session_manage(session_id, chat_history, last_active_at)
                 return ChatResponse(session_id=session_id, answer=response.output_text)
 
             for tool_item in tool_calls:

@@ -7,21 +7,23 @@
 <style>
   :root {
     color-scheme: light;
-    --bg: #f4f1ea;
-    --panel: #ffffff;
-    --accent: #2f6d4f;
-    --accent-dark: #234f39;
-    --text: #24312a;
-    --muted: #7a8a80;
-    --bubble-user: #2f6d4f;
-    --bubble-bot: #eef1ec;
-    --border: #dfe3de;
+    --canvas: #efebe0;
+    --bg: #f7f5ef;
+    --panel: #f7f5ef;
+    --accent: #3c7a5a;
+    --accent-dark: #2b5a41;
+    --text: #1f2a22;
+    --muted: #6b7a70;
+    --bubble-user: #3c7a5a;
+    --bubble-bot: #efede3;
+    --border: #e4e1d6;
+    --chip-bg: #ffffff;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0;
-    font-family: -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif;
-    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    background: var(--canvas);
     color: var(--text);
     height: 100vh;
     display: flex;
@@ -30,36 +32,72 @@
   }
   .app {
     width: 100%;
-    max-width: 720px;
+    max-width: 560px;
     display: flex;
     flex-direction: column;
     background: var(--panel);
-    box-shadow: 0 0 24px rgba(0,0,0,0.06);
+    box-shadow: 0 0 40px rgba(31,42,34,0.08);
   }
   header {
-    padding: 16px 20px;
+    flex-shrink: 0;
+    padding: 14px 20px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
   }
-  header h1 {
-    font-size: 17px;
-    margin: 0;
+  header .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    min-width: 0;
+  }
+  header .brand-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  header .brand-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.3;
+    min-width: 0;
+  }
+  header h1 {
+    font-size: 15.5px;
+    font-weight: 700;
+    margin: 0;
+  }
+  header .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   header .new-chat {
-    font-size: 13px;
-    color: var(--muted);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text);
     background: none;
     border: 1px solid var(--border);
     border-radius: 8px;
-    padding: 6px 12px;
+    padding: 7px 12px;
     cursor: pointer;
+    font-family: inherit;
   }
-  header .new-chat:hover { background: var(--bg); }
+  header .new-chat:hover { background: var(--canvas); }
+  header .new-chat svg { flex-shrink: 0; }
 
   #messages {
     flex: 1;
@@ -123,9 +161,12 @@
   }
 
   form {
+    flex-shrink: 0;
     display: flex;
     gap: 8px;
-    padding: 14px 16px;
+    align-items: flex-end;
+    padding: 12px 16px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     border-top: 1px solid var(--border);
     background: var(--panel);
   }
@@ -133,23 +174,28 @@
     flex: 1;
     resize: none;
     border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
+    border-radius: 12px;
+    padding: 10px 14px;
     font-size: 14.5px;
     font-family: inherit;
     max-height: 120px;
     line-height: 1.4;
+    background: var(--chip-bg);
+    color: var(--text);
   }
   textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   button.send {
+    width: 40px;
+    height: 40px;
     background: var(--accent);
     color: #fff;
     border: none;
     border-radius: 10px;
-    padding: 0 20px;
-    font-size: 14.5px;
     cursor: pointer;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   button.send:hover { background: var(--accent-dark); }
   button.send:disabled { background: #b9c3bc; cursor: not-allowed; }
@@ -174,10 +220,21 @@
     padding: 6px 14px;
     font-size: 13px;
     cursor: pointer;
-    background: var(--bg);
+    background: var(--chip-bg);
     color: var(--text);
   }
   .empty-hint .tip:hover { background: var(--bubble-bot); }
+
+  /* 行動版：卡片滿版鋪滿螢幕、Header 收窄、開新對話只留 icon */
+  @media (max-width: 600px) {
+    .app { max-width: none; box-shadow: none; }
+    header { padding: 10px 16px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+    header .brand-icon { width: 32px; height: 32px; border-radius: 9px; }
+    header .new-chat span { display: none; }
+    header .new-chat { padding: 0; width: 32px; height: 32px; justify-content: center; border-radius: 8px; }
+    .bubble { max-width: 86%; }
+    #messages { padding: 16px; }
+  }
 
   .offline-hint {
     padding: 10px 16px;
@@ -188,11 +245,20 @@
     border-top: 1px solid #f0c4c4;
   }
 
+  .footer-note {
+    padding: 8px 16px;
+    text-align: center;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--panel);
+  }
+
   :root:not([data-theme="light"]) {
     @media (prefers-color-scheme: dark) { }
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      --canvas: #15181a;
       --bg: #1c211d;
       --panel: #242a25;
       --text: #e7ece7;
@@ -202,6 +268,7 @@
       --bubble-user: #3d8b62;
       --accent: #3d8b62;
       --accent-dark: #57a67c;
+      --chip-bg: #2a3129;
       color-scheme: dark;
     }
     .msg-row.error .bubble { background: #3a2323; color: #f2a8a8; border-color: #5a3232; }
@@ -211,8 +278,19 @@
 <body>
   <div class="app">
     <header>
-      <h1>露營小助手</h1>
-      <button class="new-chat" id="newChatBtn">開新對話</button>
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f7f5ef" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20 L12 5 L21 20 Z"></path><path d="M12 5 L12 20"></path><path d="M8 20 L12 13 L16 20"></path></svg>
+        </div>
+        <div class="brand-text">
+          <h1>露營小助手</h1>
+          <span class="subtitle">台灣露營地 · 即時天氣</span>
+        </div>
+      </div>
+      <button class="new-chat" id="newChatBtn" aria-label="開新對話">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 1 3 6.7"></path><path d="M3 21v-6h6"></path></svg>
+        <span>開新對話</span>
+      </button>
     </header>
     <div id="messages">
       <div class="empty-hint" id="emptyHint">
@@ -225,10 +303,15 @@
     </div>
     <form id="chatForm">
       <textarea id="input" rows="1" placeholder="輸入訊息"></textarea>
-      <button type="submit" class="send" id="sendBtn">送出</button>
+      <button type="submit" class="send" id="sendBtn" aria-label="送出">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"></path><path d="M22 2 15 22 11 13 2 9 22 2Z"></path></svg>
+      </button>
     </form>
     <div class="offline-hint" id="offlineHint" hidden>
       目前展示暫時關閉
+    </div>
+    <div class="footer-note">
+      前端介面由AI協助設計產生，本專案重點在展示後端AI Agent架構
     </div>
   </div>
 
