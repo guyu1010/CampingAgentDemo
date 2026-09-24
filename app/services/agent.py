@@ -10,13 +10,16 @@ from openai import APIError, APITimeoutError, AsyncOpenAI
 from app.core.config import settings
 from app.schemas.agent import ChatResponse
 from app.services.campsite_service import CampsiteService
+from app.services.knowledge_service import KnowledgeService
 from app.services.weather_service import WeatherService
+
 
 SYSTEM_PROMPT = """- 身份與範圍:你是台灣露營助理,只回答露營相關問題。
 - 縣市名稱規則:一律用「臺」而非「台」,呼叫工具前先轉成正式名稱。
 - 回答風格:繁體中文、簡潔、預設列出 5 個結果，但如果使用者指定數量時，以使用者需求為準。
 - 模糊情況怎麼辦:例如使用者說「嘉義」時,先反問是縣還是市。
-- 工具使用策略:問天氣時,要先取得座標。"""
+- 工具使用策略:問天氣時,要先取得座標。使用者問安全注意事項、該不該去、要準備什麼,或查完天氣發現有大雨/高溫/寒冷等可能影響人身安全時，呼叫 search_camping_knowledge。
+- search_camping_knowledge 是用語意相似度搜出結果，不保證每段都真的相關，只採用真正回答到問題的段落，不相關的直接忽略，不要為了湊內容硬套用。"""
 
 tools = [
     {
@@ -57,6 +60,23 @@ tools = [
                 },
             },
             "required": ["lat","lng"],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+    {
+        "type": "function",
+        "name": "search_camping_knowledge",
+        "description": "使用者問注意事項或者使用天氣工具後，判斷大雨、寒冷、炎熱可能造成人體危害時，可以查詢相關知識",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "使用者想了解的露營安全主題，用簡短的中文描述情境即可，例如：「打雷該怎麼辦」「有蛇出沒怎麼辦」「午後雷陣雨可以露營嗎」。",
+                }
+            },
+            "required": ["query"],
             "additionalProperties": False,
         },
         "strict": True,
@@ -174,6 +194,8 @@ class AgentService:
                 return ChatResponse(session_id=session_id, answer=response.output_text)
 
             for tool_item in tool_calls:
+                for tool_item in tool_calls:
+                    logger.info("AI呼叫工具： %s, 參數： %s", tool_item["name"], tool_item["data"])
                 try:
                     if tool_item["name"] == "find_nearest_campsites":
                         args = json.loads(tool_item["data"])
@@ -183,6 +205,9 @@ class AgentService:
                         args = json.loads(tool_item["data"])
                         weather = await WeatherService().get_weather(args["lat"], args["lng"])
                         result = weather.model_dump()
+                    elif tool_item["name"] == "search_camping_knowledge":
+                        args = json.loads(tool_item["data"])
+                        result = await KnowledgeService(self.client).search(args["query"])
                     else:
                         result = "未知的工具"
                 except HTTPException as e:
