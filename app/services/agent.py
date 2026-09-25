@@ -194,8 +194,8 @@ class AgentService:
                 return ChatResponse(session_id=session_id, answer=response.output_text)
 
             for tool_item in tool_calls:
-                for tool_item in tool_calls:
-                    logger.info("AI呼叫工具： %s, 參數： %s", tool_item["name"], tool_item["data"])
+                logger.info("AI呼叫工具： %s, 參數： %s", tool_item["name"], tool_item["data"])
+                
                 try:
                     if tool_item["name"] == "find_nearest_campsites":
                         args = json.loads(tool_item["data"])
@@ -224,3 +224,94 @@ class AgentService:
                 })
 
         return ChatResponse(session_id=session_id, answer="找不到答案")
+
+    async def chat_stream(self, session_id: str | None, question: str):
+        chat_history, last_active_at = list(_session_store.get(session_id, ([], None)))
+
+        if session_id is None or session_id not in _session_store:
+            session_id = str(uuid.uuid4())
+            last_active_at = datetime.now()
+
+        message = {
+            "role": "user",
+            "content": question
+        }
+        chat_history.append(message)
+
+        for _ in range(MAX_TOOL_CALL_LOOPS):
+            try:
+                response = await self.client.responses.create(
+                    model=settings.openai_model,
+                    input=chat_history,
+                    tools=tools,
+                    instructions = SYSTEM_PROMPT)
+            except APITimeoutError as e:
+                logger.error("OpenAI 呼叫逾時: %r", e)
+                yield {"type": "error", "detail": "呼叫逾時"}
+                return
+
+            except APIError as e:
+                logger.error("OpenAI API 錯誤: %r", e)
+
+                http_status, detail = OPENAI_ERROR_MAP.get(getattr(e, "status_code", None), (status.HTTP_502_BAD_GATEWAY, "AI 服務回應異常。"))
+                yield {"type": "error", "detail": detail}
+                return
+
+            except Exception as e:
+                logger.error("系統發生非預期錯誤: %r", e)
+                yield {"type": "error", "detail": "系統發生內部錯誤。"}
+                return
+
+            tool_calls = []
+
+            for item in response.output:
+                if item.type == "function_call":
+                    tool = {
+                        "data": item.arguments,
+                        "name": item.name,
+                        "call_id":item.call_id
+                    }
+                    tool_calls.append(tool)
+
+            chat_history += response.output
+
+            if len(tool_calls) == 0:
+                self.session_manage(session_id, chat_history, last_active_at)
+                yield {"type": "answer", "session_id": session_id, "answer": response.output_text}
+                return
+
+            for tool_item in tool_calls:
+
+                logger.info("AI呼叫工具： %s, 參數： %s", tool_item["name"], tool_item["data"])
+
+                yield {"type": "tool_call", "tool": tool_item["name"]}
+
+                try:
+                    if tool_item["name"] == "find_nearest_campsites":
+                        args = json.loads(tool_item["data"])
+                        service = CampsiteService(self.db)
+                        result = await service.get_near_campsite(args["county"], args["district"])
+                    elif tool_item["name"] == "get_weather":
+                        args = json.loads(tool_item["data"])
+                        weather = await WeatherService().get_weather(args["lat"], args["lng"])
+                        result = weather.model_dump()
+                    elif tool_item["name"] == "search_camping_knowledge":
+                        args = json.loads(tool_item["data"])
+                        result = await KnowledgeService(self.client).search(args["query"])
+                    else:
+                        result = "未知的工具"
+                except HTTPException as e:
+                        result = {"error": e.detail}
+                        logger.error("工具執行時發生 HTTPException: %r", e)
+                except Exception as e:
+                        result = {"error": "工具執行失敗"}
+                        logger.error("工具執行失敗: %r", e)
+
+                chat_history.append({
+                    "type": "function_call_output",
+                    "call_id": tool_item["call_id"],
+                    "output": json.dumps(result, ensure_ascii=False),
+                })
+
+        yield {"type": "answer", "session_id": session_id, "answer": "找不到答案"}
+        return
