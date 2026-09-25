@@ -211,9 +211,11 @@ class AgentService:
                     else:
                         result = "未知的工具"
                 except HTTPException as e:
+                        await self.db.rollback()
                         result = {"error": e.detail}
                         logger.error("工具執行時發生 HTTPException: %r", e)
                 except Exception as e:
+                        await self.db.rollback()
                         result = {"error": "工具執行失敗"}
                         logger.error("工具執行失敗: %r", e)
 
@@ -301,9 +303,11 @@ class AgentService:
                     else:
                         result = "未知的工具"
                 except HTTPException as e:
+                        await self.db.rollback()
                         result = {"error": e.detail}
                         logger.error("工具執行時發生 HTTPException: %r", e)
                 except Exception as e:
+                        await self.db.rollback()
                         result = {"error": "工具執行失敗"}
                         logger.error("工具執行失敗: %r", e)
 
