@@ -1,7 +1,7 @@
 import asyncio
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -45,5 +45,9 @@ app.include_router(agent.router)
 @app.get("/")
 async def root():
     return RedirectResponse("/web/")
+
+@app.get("/health")
+async def health():
+    return {"status": "ok", "version": settings.app_version}
 
 app.mount("/web", StaticFiles(directory="web", html=True), name="web")
