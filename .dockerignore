@@ -1,0 +1,11 @@
+.env
+myenv/
+app.db
+logs/
+.git/
+**/__pycache__
+local_tools/
+**/.DS_Store
+.pytest_cache/
+tests/
+.github/
